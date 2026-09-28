@@ -89,7 +89,7 @@ async def part4_attacks():
 
     from agents.agent import create_red_agent_default, test_agent
     from agents.guards_agent import create_red_agent_advance
-    from attacks.attacks import b2_prompts, run_attacks, save_attack_results
+    from attacks.attacks import b2_prompts_all, run_attacks, save_attack_results
 
     red_default, red_default_runner = create_red_agent_default()
     # Smoke test là bước phụ — lỗi hạ tầng tạm ở đây không được làm hỏng cả run.
@@ -105,11 +105,11 @@ async def part4_attacks():
 
     print("\n--- Attacks on Red Advance (bonus B2 tối đa +10 nếu LEAKED; chọn 1) ---")
     red_advance, red_advance_runner = create_red_agent_advance()
-    # Dùng bộ prompt B2 (đã né input filter) cho Red Advance; Red dùng
-    # adversarial_prompts để giữ phần điểm bắt buộc CP4.
-    # Tổng lần gọi LLM vẫn = 1 + 5 + 5 = 11 (vừa hạn mức Gemini free tier).
+    # Dùng bộ prompt B2 (đều đã PASS input filter của Red Advance) cho
+    # Red Advance; Red dùng adversarial_prompts để giữ điểm bắt buộc CP4.
+    # Tổng lần gọi LLM = 1 + 5 + 10 = 16 (vừa hạn mức Gemini free tier).
     guards_results = await run_attacks(
-        red_advance, red_advance_runner, prompts=b2_prompts, target_name="red_advance"
+        red_advance, red_advance_runner, prompts=b2_prompts_all, target_name="red_advance"
     )
 
     save_attack_results(
