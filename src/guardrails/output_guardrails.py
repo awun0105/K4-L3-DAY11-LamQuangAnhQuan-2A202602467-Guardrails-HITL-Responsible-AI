@@ -41,24 +41,37 @@ def content_filter(response: str) -> dict:
 
     # PII patterns to check
     PII_PATTERNS = {
-        # TODO: Add regex patterns for:
-        # - VN phone number: r"0\d{9,10}"
-        # - Email: r"[\w.-]+@[\w.-]+\.[a-zA-Z]{2,}"
-        # - National ID (CMND/CCCD): r"\b\d{9}\b|\b\d{12}\b"
-        # - API key pattern: r"sk-[a-zA-Z0-9-]+"
-        # - Password pattern: r"password\s*[:=]\s*\S+"
+        "lab_secret": r"\badmin123\b|\bdb\.vinbank\.internal(?::\d+)?",
+        # ↑ Giá trị demo trong data/protected/vinbank_secrets.json.
+        # Bắt theo *giá trị* chứ không theo cách diễn đạt, nên câu
+        # "password is admin123" cũng bị che dù không có dấu ":" hay "=".
+        "vn_phone": r"0\d{9,10}",
+        # ↑ SĐT Việt Nam: bắt đầu bằng 0, theo sau 9-10 chữ số
+        # Ví dụ: 0901234567, 02812345678
+        "email": r"[\w.-]+@[\w.-]+\.[a-zA-Z]{2,}",
+        # ↑ Email: user@domain.com
+        # [\w.-]+ = chữ/số/dấu chấm/gạch ngang, sau đó @domain
+        "national_id": r"\b\d{9}\b|\b\d{12}\b",
+        # ↑ CMND (9 số) hoặc CCCD (12 số)
+        # \b = word boundary — tránh bắt nhầm số dài hơn
+        "api_key": r"sk-[a-zA-Z0-9-]+",
+        # ↑ API key pattern: "sk-" + chuỗi ký tự
+        # Bắt: sk-vinbank-secret-2024, sk-abc123
+        "password": r"(?:password|mật\s*khẩu|passwd)\s*(?:is|are|was|:|=)\s*\S+",
+        # ↑ "password: admin123" / "password=abc" / "password is admin123"
+        # \s* = 0+ khoảng trắng; \S+ = 1+ ký tự không phải khoảng trắng
     }
 
+    # Với mỗi pattern: tìm match → ghi issue → thay bằng [REDACTED]
     for name, pattern in PII_PATTERNS.items():
         matches = re.findall(pattern, response, re.IGNORECASE)
         if matches:
             issues.append(f"{name}: {len(matches)} found")
             redacted = re.sub(pattern, "[REDACTED]", redacted, flags=re.IGNORECASE)
-
     return {
-        "safe": len(issues) == 0,
-        "issues": issues,
-        "redacted": redacted,
+        "safe": len(issues) == 0,       # True nếu không tìm thấy gì
+        "issues": issues,                # Danh sách vấn đề tìm thấy
+        "redacted": redacted,            # Chuỗi đã che
     }
 
 
@@ -172,16 +185,28 @@ class OutputGuardrailPlugin(base_plugin.BasePlugin):
         if not response_text:
             return llm_response
 
-        # TODO: Implement logic:
-        # 1. Call content_filter(response_text)
-        #    - If issues found: replace llm_response.content with redacted version
-        #    - Increment self.redacted_count
-        # 2. If use_llm_judge: call llm_safety_check(response_text)
-        #    - If unsafe: replace llm_response.content with a safe message
-        #    - Increment self.blocked_count
-        # 3. Return llm_response (possibly modified)
-
-        return llm_response  # TODO: modify if needed
+        # === Lớp 1: Content filter (regex PII/secret) ===
+        result = content_filter(response_text)
+        if not result["safe"]:
+            self.redacted_count += 1
+            # Thay thế nội dung response bằng bản đã che [REDACTED]
+            llm_response.content = types.Content(
+                role="model",
+                parts=[types.Part.from_text(text=result["redacted"])],
+            )
+        # === Lớp 2: LLM Judge (optional, không chấm) ===
+        # Dùng một LLM khác để đánh giá response có an toàn không
+        if self.use_llm_judge:
+            judge_result = await llm_safety_check(response_text)
+            if not judge_result["safe"]:
+                self.blocked_count += 1
+                llm_response.content = types.Content(
+                    role="model",
+                    parts=[types.Part.from_text(
+                        text="I cannot share internal system details. Please ask about banking services."
+                    )],
+                )
+        return llm_response
 
 
 # ============================================================

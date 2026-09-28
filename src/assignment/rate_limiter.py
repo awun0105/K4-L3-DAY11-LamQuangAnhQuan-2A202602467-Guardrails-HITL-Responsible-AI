@@ -1,5 +1,5 @@
 """
-Assignment 11 — Rate Limiter starter (TODO).
+Assignment 11 — Rate Limiter (sliding window, per user).
 
 Sliding-window, per-user rate limiting. Blocks abuse that other
 guardrail layers do not address (flooding / cost attacks).
@@ -37,13 +37,19 @@ class RateLimitPlugin(base_plugin.BasePlugin):
         now = time.time()
         window = self.user_windows[user_id]
 
-        # TODO: Implement sliding window:
-        # 1. Pop timestamps older than (now - window_seconds) from the left
-        # 2. If len(window) >= max_requests:
-        #       wait = window_seconds - (now - window[0])
-        #       self.blocked_count += 1
-        #       return self._block_response(
-        #           f"Rate limit exceeded. Try again in {wait:.0f}s."
-        #       )
-        # 3. Else: append now, return None
-        raise NotImplementedError("Implement RateLimitPlugin.on_user_message_callback")
+        # === Bước 1: Dọn dẹp timestamp cũ hơn window ===
+        # Ví dụ: window_seconds=60, now=100
+        # window = [30, 45, 55, 60, 70] → xóa [30, 45] (cũ hơn 100-60=40)
+        while window and window[0] < now - self.window_seconds:
+            window.popleft()
+        # === Bước 2: Đã đủ max → chặn ===
+        if len(window) >= self.max_requests:
+            wait = self.window_seconds - (now - window[0])
+            # ↑ Tính thời gian chờ = bao lâu nữa slot cũ nhất hết hạn
+            self.blocked_count += 1
+            return self._block_response(
+                f"Rate limit exceeded. Try again in {wait:.0f}s."
+            )
+        # === Bước 3: Còn slot → ghi timestamp, cho qua ===
+        window.append(now)
+        return None
