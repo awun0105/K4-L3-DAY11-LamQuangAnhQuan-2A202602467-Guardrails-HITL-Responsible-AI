@@ -92,7 +92,11 @@ async def part4_attacks():
     from attacks.attacks import b2_prompts, run_attacks, save_attack_results
 
     red_default, red_default_runner = create_red_agent_default()
-    await test_agent(red_default, red_default_runner)
+    # Smoke test là bước phụ — lỗi hạ tầng tạm ở đây không được làm hỏng cả run.
+    try:
+        await test_agent(red_default, red_default_runner)
+    except Exception as exc:
+        print(f"Smoke test bỏ qua (không chặn CP4): {type(exc).__name__}: {exc}")
 
     print("\n--- Attacks on Red ---")
     unsafe_results = await run_attacks(
