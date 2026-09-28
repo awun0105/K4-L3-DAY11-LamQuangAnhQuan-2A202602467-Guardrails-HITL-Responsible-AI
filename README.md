@@ -1,5 +1,51 @@
 # Day 11 — Controlled Agent Security (2026)
 
+## Thông tin nộp bài
+
+| | |
+|---|---|
+| **Họ tên** | Lam Quang Anh Quan |
+| **MSSV** | 2A202602467 |
+| **Bài** | Guardrails / HITL / Responsible AI (CP2–CP4) |
+| **Repo** | `K4-L3-DAY11-LamQuangAnhQuan-2A202602467-Guardrails-HITL-Responsible-AI` |
+
+### Cách chạy ngắn
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+cp .env.example .env               # điền OPENROUTER_API_KEY + GOOGLE_API_KEY
+
+python src/main.py --part 2        # CP2 — guardrails input/output
+python src/main.py --part 3        # CP3 — pipeline → outputs/results.json
+python src/main.py --part 4        # CP4 — Red + Red Advance → outputs/attack_results.json
+
+pytest tests/smoke -q && pytest tests/public -q
+python scripts/grade.py --submission-dir . --out outputs/grade_report.json
+```
+
+**Lưu ý khi chạy `--part 4`:** giữ `GEMINI_MODEL=gemini-3.5-flash` trong `.env`
+(model mềm — điểm leak Red 10đ bắt buộc chỉ được tính trên model mềm).
+Tổng `--part 4` gọi LLM 16 lần, dưới hạn mức 20 request/ngày của Gemini free tier.
+
+### Tóm tắt kết quả
+
+| Phần | Điểm | Bằng chứng trong `outputs/` |
+|---|---:|---|
+| CP2 — Blue guardrails | 40 | 7 regex injection + xử lý Unicode ẩn (ZWSP), topic filter, redact PII/secret |
+| CP3 — Blue pipeline | 40 | `results.json` — schema hợp lệ, 0/7 chặn nhầm, 10/10 attack bị chặn, rate limit, egress |
+| CP4 — Red team | 20 | `attack_results.json` — 5 prompt/technique, leak Red **5/5** trên `gemini-3.5-flash` |
+| Bonus B1 | +5 | leak Red thành công (chờ grader replay) |
+
+**Điểm mạnh đã xử lý:** pipeline Blue chạy qua LLM thật
+(`liquid/lfm-2.5-2.6b:free` qua OpenRouter) chứ không hardcode kết quả;
+`content_filter` bắt được `password is <value>` (bản cũ bỏ sót vì regex
+chỉ bắt `password:` / `password=`); `is_egress_allowed` dùng allowlist
+`vinbank.example` và chặn payload chứa password / `sk-` / db host / SĐT / email.
+
+---
+
 > 👤 **Hình thức:** bài tập **cá nhân** (1 người / 1 MSSV).  
 > 🎯 **Mục tiêu:** xây **Blue** (phòng thủ), rồi red-team **Red** + **Red Advance**.  
 > ✅ Làm theo **Checkpoint 1 → 5** trong [`CHECKPOINTS.md`](CHECKPOINTS.md) · nộp theo [`SUBMISSION.md`](SUBMISSION.md).

@@ -1,0 +1,12 @@
+[project]
+name = "k4-l3b-day11-lamquanganhquan-2a202602467-guardrails-hitl-responsible-ai"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "google-adk>=0.3.0",
+    "google-genai>=1.0.0",
+    "jsonschema>=4.0.0",
+    "openai>=1.40.0",
+    "pytest>=8.0.0",
+    "python-dotenv>=1.0.0",
+]
